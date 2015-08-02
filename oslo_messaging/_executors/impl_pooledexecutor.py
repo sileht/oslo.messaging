@@ -92,9 +92,15 @@ class PooledExecutor(base.ExecutorBase):
 
     @excutils.forever_retry_uncaught_exceptions
     def _runner(self):
+        batch_mode = getattr(self.dispatcher, 'batch_mode', False)
+        batch_size = getattr(self.dispatcher, 'batch_size', 1) or 1
+        batch_timeout = getattr(self.dispatcher, 'batch_timeout', None)
         while not self._tombstone.is_set():
-            incoming = self.listener.poll()
-            if incoming is None:
+            if batch_mode:
+                incoming = self.listener.batch_poll(batch_size, batch_timeout)
+            else:
+                incoming = self.listener.poll()
+            if not incoming:
                 continue
             callback = self.dispatcher(incoming, self._executor_callback)
             was_submitted = self._do_submit(callback)

@@ -19,6 +19,7 @@ import six
 
 from oslo_config import cfg
 from oslo_messaging import exceptions
+from oslo_utils import timeutils
 
 base_opts = [
     cfg.IntOpt('rpc_conn_pool_size',
@@ -66,6 +67,25 @@ class Listener(object):
         Return None after timeout seconds if timeout is set and no message is
         ending or if the listener have been stopped.
         """
+
+    def batch_poll(self, batch_size, batch_timeout):
+        """Blocking until 'size' messages are pending and return IncomingMessage.
+        Return None after timeout seconds if timeout is set and no message is
+        ending or if the listener have been stopped.
+
+        default implementation just call poll many times
+        """
+        incomings = []
+        watch = timeutils.StopWatch(duration=batch_timeout)
+        with watch:
+            for __ in range(batch_size):
+                msg = self.poll(timeout=watch.leftover(return_none=True))
+                if msg is not None:
+                    incomings.append(msg)
+                else:
+                    # timeout reached or listener stopped
+                    break
+        return incomings
 
     def stop(self):
         """Stop listener.

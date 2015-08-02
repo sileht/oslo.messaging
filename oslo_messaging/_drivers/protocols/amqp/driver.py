@@ -117,8 +117,11 @@ class ProtonListener(base.Listener):
         super(ProtonListener, self).__init__(driver)
         self.incoming = moves.queue.Queue()
 
-    def poll(self):
-        message = self.incoming.get()
+    def poll(self, timeout=None):
+        try:
+            message = self.incoming.get(True, timeout)
+        except moves.queue.Empty:
+            return
         request, ctxt = unmarshal_request(message)
         LOG.debug("Returning incoming message")
         return ProtonIncomingMessage(self, ctxt, request, message)
